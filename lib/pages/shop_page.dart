@@ -1,12 +1,10 @@
-import 'package:coffeeapp/components/coffee_tile.dart';
-import 'package:coffeeapp/model/coffee_shop.dart';
+import '../components/coffee_tile.dart';
+import '../model/coffee.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../model/coffee.dart';
-import 'coffee_order_page.dart';
-
-
+import '../model/coffee_shop.dart';
+import 'coffee_oreder_page.dart';
 
 class ShopPage extends StatefulWidget {
 
@@ -25,7 +23,7 @@ class _ShopPageState extends State<ShopPage> {
   }
 
   Widget build(BuildContext context) {
-    return Consumer<CoffeeShope>(
+    return Consumer<CoffeeShop>(
       builder: (context, value, child) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -39,9 +37,9 @@ class _ShopPageState extends State<ShopPage> {
           SizedBox(height: 25),
           Expanded(
             child: ListView.builder(
-              itemCount: value.coffeeShope.length,
+              itemCount: value.coffeeShop.length,
               itemBuilder: (context, index) {
-                Coffee eachCoffee = value.coffeeShope[index];
+                Coffee eachCoffee = value.coffeeShop[index];
                 return CoffeeTile(
                   coffee: eachCoffee,
                   onPressed: () => goToCoffeePage(eachCoffee),

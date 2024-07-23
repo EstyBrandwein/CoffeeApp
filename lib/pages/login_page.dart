@@ -1,5 +1,8 @@
-import 'package:flutter/material.dart';
+import 'dart:math';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import '../components/my_button.dart';
 import '../services/email_service.dart';
 import 'home_page.dart';
 
@@ -9,147 +12,273 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  bool isPhoneSelected = true;
-  bool isSend = false;
-  final TextEditingController _phoneEmailController = TextEditingController();
-  final TextEditingController _phoneEmailTrustController =
-      TextEditingController();
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final EmailService emailService = EmailService();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _codeController = TextEditingController();
+  String? _verificationId;
+  bool _isCodeSent = false;
+  bool _isEmailSelected = false;
+
+  void _verifyPhoneNumber() async {
+    String phoneNumber = _phoneController.text.trim();
+
+    if (!phoneNumber.startsWith('+')) {
+      phoneNumber = '+972' + phoneNumber;
+    }
+
+    await FirebaseAuth.instance.verifyPhoneNumber(
+      phoneNumber: phoneNumber,
+      verificationCompleted: (PhoneAuthCredential credential) async {
+        await FirebaseAuth.instance.signInWithCredential(credential);
+        _checkIfNewUser();
+      },
+      verificationFailed: (FirebaseAuthException e) {
+        print('Verification failed: ${e.message}');
+      },
+      codeSent: (String verificationId, int? resendToken) {
+        setState(() {
+          _verificationId = verificationId;
+          _isCodeSent = true;
+        });
+      },
+      codeAutoRetrievalTimeout: (String verificationId) {},
+    );
+  }
+
+  void _sendVerificationEmail() async {
+    String email = _emailController.text.trim();
+    if (email.isEmpty ||
+        !RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$").hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Please enter a valid email address.'),
+        backgroundColor: Colors.red,
+      ));
+      return;
+    }
+
+    String code = _generateVerificationCode();
+    await sendVerificationEmail(email, code);
+    setState(() {
+      _verificationId = code;
+      _isCodeSent = true;
+    });
+  }
+
+  String _generateVerificationCode() {
+    String code = '';
+    for (int i = 0; i < 6; i++) {
+      code += (0 + (Random().nextInt(9))).toString();
+    }
+    return code;
+  }
+
+  void _signInWithSMSCode() async {
+    if (_verificationId != null) {
+      final credential = PhoneAuthProvider.credential(
+        verificationId: _verificationId!,
+        smsCode: _codeController.text,
+      );
+
+      await FirebaseAuth.instance.signInWithCredential(credential);
+
+      _checkIfNewUser();
+    }
+  }
+
+  void _signInWithEmailCode() async {
+    
+    if (_verificationId == _codeController.text) {
+                _navigateToHome();
+
+      try {
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _verificationId!,
+        );
+        _checkIfNewUser();
+      } catch (e) {
+        print('Error signing in with email: ${e.toString()}');
+        _registerNewUser(); // רישום משתמש חדש במקרה של שגיאה
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Invalid code. Please try again.'),
+        backgroundColor: Colors.red,
+      ));
+    }
+  }
+
+  void _checkIfNewUser() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      QuerySnapshot userDocs = await FirebaseFirestore.instance
+          .collection('users')
+          .where('email', isEqualTo: _emailController.text.trim())
+          .get();
+      if (userDocs.docs.isEmpty) {
+        _registerNewUser();
+      } else {
+        _navigateToHome();
+      }
+    }
+  }
+
+  void _registerNewUser() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      await FirebaseFirestore.instance.collection('users').add({
+        'name': _emailController.text.trim(),
+        'phone': _phoneController.text.trim(),
+        'email': _emailController.text.trim(),
+      });
+      _navigateToHome();
+    }
+  }
+
+  void _navigateToHome() {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => HomePage(
+          userEmail: _emailController.text.trim(),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey[300],
       body: Center(
-        child: Padding(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Image.asset(
-                'lib/images/iced_coffee.png', // Make sure to add your image asset here
-                height: 100,
-              ),
-              SizedBox(height: 20),
+            children: [
+              Image.asset("lib/images/latte.png", height: 100),
+              const SizedBox(height: 24),
               Text(
-                'היי, ברוכים הבאים',
-                style: TextStyle(fontSize: 24),
+                "היי, ברוכים הבאים",
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.brown,
+                ),
               ),
-              SizedBox(height: 10),
-              Text(
-                'הזינו את מספר הטלפון או המייל על מנת להיכנס',
-                style: TextStyle(fontSize: 16),
-                textAlign: TextAlign.center,
-              ),
-              SizedBox(height: 20),
+              const SizedBox(height: 8),
+              const Text("הזינו את מספר הטלפון או המייל על מנת להיכנס"),
+              const SizedBox(height: 16),
               ToggleButtons(
-                borderColor: Colors.grey,
-                fillColor: Colors.brown[100],
-                borderWidth: 2,
-                selectedBorderColor: Colors.brown,
-                selectedColor: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                children: <Widget>[
+                children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Text('טלפון'),
                   ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: Text('מייל'),
                   ),
                 ],
+                isSelected: [
+                  _isEmailSelected == false,
+                  _isEmailSelected == true
+                ],
                 onPressed: (int index) {
                   setState(() {
-                    isPhoneSelected = index == 0;
+                    _isEmailSelected = index == 1;
+                    _isCodeSent = false;
                   });
                 },
-                isSelected: [isPhoneSelected, !isPhoneSelected],
               ),
-              SizedBox(height: 20),
-              TextField(
-                controller: _phoneEmailController,
-                decoration: InputDecoration(
-                    border: OutlineInputBorder(),
-                    labelText: isPhoneSelected ? 'מספר טלפון' : 'כתובת מייל',
-                    prefixText: isPhoneSelected ? '+079 ' : ''),
-              ),
-              SizedBox(height: 20),
-              if (!isSend)
-                ElevatedButton(
-                  onPressed: _sendVerificationCode,
-                  style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(horizontal: 50, vertical: 15),
-                    textStyle: TextStyle(fontSize: 16),
+              const SizedBox(height: 16),
+              if (!_isEmailSelected) ...[
+                TextField(
+                  controller: _phoneController,
+                  decoration: InputDecoration(
+                    labelText: 'מספר טלפון',
+                    prefixText: '+972 ',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                      borderSide: const BorderSide(color: Colors.brown),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                      borderSide: const BorderSide(color: Colors.brown),
+                    ),
                   ),
-                  child: Text('שלחו לי קוד אימות'),
+                  keyboardType: TextInputType.phone,
                 ),
-              if (isSend)
-                Column(children: [
-                  Text("שלחנו לך קוד אימות למייל"),
-                  SizedBox(height: 20),
-                  TextField(
-                    controller: _phoneEmailTrustController,
-                    decoration: InputDecoration(
-                      border: OutlineInputBorder(),
-                      labelText: 'קוד אימות',
+              ] else ...[
+                TextField(
+                  controller: _emailController,
+                  decoration: InputDecoration(
+                    labelText: 'מייל',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                      borderSide: const BorderSide(color: Colors.brown),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                      borderSide: const BorderSide(color: Colors.brown),
                     ),
                   ),
-                  ElevatedButton(
-                    onPressed: _VerifyCode,
-                    style: ElevatedButton.styleFrom(
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 50, vertical: 15),
-                      textStyle: TextStyle(fontSize: 16),
+                  keyboardType: TextInputType.emailAddress,
+                ),
+              ],
+              const SizedBox(height: 16),
+              if (!_isCodeSent) ...[
+                MyButton(
+                  text: _isEmailSelected
+                      ? "שלחו לי קוד אימות במייל"
+                      : "שלחו לי קוד אימות",
+                  onTap: _isEmailSelected
+                      ? _sendVerificationEmail
+                      : _verifyPhoneNumber,
+                ),
+              ] else ...[
+                Text(
+                  _isEmailSelected
+                      ? "שלחנו לך קוד אימות למייל"
+                      : "שלחנו לך קוד אימות לטלפון",
+                  style: TextStyle(color: Colors.brown),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  _isEmailSelected
+                      ? _emailController.text
+                      : _phoneController.text,
+                  style: TextStyle(
+                      color: Colors.brown, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _codeController,
+                  decoration: InputDecoration(
+                    labelText: 'קוד אימות',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                      borderSide: const BorderSide(color: Colors.brown),
                     ),
-                    child: Text('אישור'),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                      borderSide: const BorderSide(color: Colors.brown),
+                    ),
                   ),
-                ])
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 16),
+                MyButton(
+                  text: "אישור",
+                  onTap: _isEmailSelected
+                      ? _signInWithEmailCode
+                      : _signInWithSMSCode,
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
   }
-
-  void _sendVerificationCode() async {
-    String input = _phoneEmailController.text.trim();
-    if (isPhoneSelected) {
-      await _auth.verifyPhoneNumber(
-        phoneNumber: input,
-        verificationCompleted: (PhoneAuthCredential credential) async {
-          await _auth.signInWithCredential(credential);
-        },
-        verificationFailed: (FirebaseAuthException e) {
-          print('Verification failed: ${e.message}');
-        },
-        codeSent: (String verificationId, int? resendToken) {},
-        codeAutoRetrievalTimeout: (String verificationId) {},
-      );
-    } else if(validateEmail(_phoneEmailController.text)){
-      setState(() {
-        isSend = true;
-      });
-      if (!(await emailService.isEmailRegistered(_phoneEmailController.text))) {
-        await emailService.registerEmail(_phoneEmailController.text);
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('המייל נרשם')));
-      }
-      await emailService.sendVerificationEmail(input);
-    }
-  }
-
-  void _VerifyCode() async {
-    if (emailService.code == _phoneEmailTrustController.text) {
-      Navigator.push(
-          context, MaterialPageRoute(builder: (context) => HomePage()));
-    }
-  }
-    bool validateEmail(String email) {
-    String emailPattern = r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$';
-    RegExp regex = RegExp(emailPattern);
-    return regex.hasMatch(email);
-  }
 }
-

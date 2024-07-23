@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 
 import '../model/coffee.dart';
 
-class CoffeeTile extends StatelessWidget {
+class CartTile extends StatelessWidget {
   final Coffee coffee;
   final void Function()? onPressed;
 
-  const CoffeeTile({required this.coffee, required this.onPressed});
+  const CartTile({required this.coffee, required this.onPressed});
 
   Widget build(BuildContext context) {
     return Container(
@@ -14,8 +14,8 @@ class CoffeeTile extends StatelessWidget {
         color: Colors.grey[200],
         borderRadius: BorderRadius.circular(12),
       ),
-      margin:  EdgeInsets.only(left: 25, right: 25, bottom: 10),
-      padding: EdgeInsets.symmetric(vertical: 25, horizontal: 10),
+      margin: EdgeInsets.only(left: 25, right: 25, bottom: 10),
+      padding: EdgeInsets.symmetric(vertical: 10, horizontal: 10),
       child: ListTile(
         leading: Image.asset(coffee.imagePath),
         title: Padding(
@@ -25,9 +25,11 @@ class CoffeeTile extends StatelessWidget {
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
         ),
-        subtitle: Text('\$${coffee.price}'),
+        subtitle: Text(
+          "Quantity: ${coffee.quantity} \nTotal: \$${coffee.price * coffee.quantity}"
+        ),
         trailing: IconButton(
-          icon: Icon(Icons.arrow_forward, color: Colors.brown[300]),
+          icon: Icon(Icons.delete, color: Colors.brown[300]),
           onPressed: onPressed,
         ),
       ),

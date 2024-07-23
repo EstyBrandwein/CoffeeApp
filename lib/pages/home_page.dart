@@ -1,49 +1,44 @@
-import 'package:coffeeapp/components/botton_nav_bar.dart';
-import 'package:coffeeapp/const.dart';
-import 'package:coffeeapp/pages/cart_page.dart';
-import 'package:coffeeapp/pages/shop_page.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../components/bottom_nav_bar.dart';
+import '../const.dart';
+import '../pages/cart_page.dart';
+import '../pages/login_page.dart';
 import 'package:flutter/material.dart';
 
-import '../services/email_service.dart';
+import '../components/coffee_tile.dart';
 import 'about_page.dart';
-import 'coffee_manager.dart';
+import 'coffee_manger.dart';
+import 'shop_page.dart';
 
 class HomePage extends StatefulWidget {
+  final String userEmail;
+  const HomePage({required this.userEmail});
+
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-    
-int _selectedIndex = 0;
-  User? user;
+  int _selectedIndex = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _getCurrentUser();
-  }
-
-  void _getCurrentUser() async {
-    User? currentUser = FirebaseAuth.instance.currentUser;
-    setState(() {
-      user = currentUser;
-    });
-  }
-  final EmailService emailService = EmailService();
-
-  void navigateBottomNavBar(int index) {
+  void navigateBottomBar(int index) {
     setState(() {
       _selectedIndex = index;
     });
   }
 
-  final List _pages = [ShopPage(), CartPage()];
+  void initState() {
+    super.initState();
+    print('User Email: ${widget.userEmail}');
+  }
+
 
   Widget build(BuildContext context) {
+    final List _pages = [
+    ShopPage(),
+    CartPage(userEmail: widget.userEmail,),
+  ];
     return Scaffold(
       backgroundColor: backgroundColor,
-      bottomNavigationBar: MyBottonNavBar(onTopChange: navigateBottomNavBar),
+      bottomNavigationBar: MyBottomNavBar(onTabChange:  navigateBottomBar),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -62,55 +57,71 @@ int _selectedIndex = 0;
       drawer: Drawer(
         backgroundColor: backgroundColor,
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            SizedBox(
-              height: 80,
-            ),
-            Image.asset(
-              "lib/images/espresso.png",
-              height: 160,
-            ),
-            Padding(
-              padding: EdgeInsets.all(25),
-              child: Divider(
-                color: Colors.white,
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.only(left: 25),
-              child: GestureDetector(
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => HomePage(),
-                    ),
-                  );
-                },
-                child: ListTile(
-                  leading: Icon(Icons.home),
-                  title: Text('Home'),
+            Column(
+              children: [
+                SizedBox(height: 80),
+                Image.asset("lib/images/espresso.png", height: 160),
+                Padding(
+                  padding: EdgeInsets.all(25),
+                  child: Divider(color: Colors.white),
                 ),
-              ),
-            ),
+                Padding(
+                  padding: EdgeInsets.only(left: 25),
+                  child: GestureDetector(
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => HomePage(
+                          userEmail: widget.userEmail,
+                        )),
+                      );
+                    },
+                    child: ListTile(
+                      leading: Icon(Icons.home),
+                      title: Text("Home"),
+                    ),
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => AboutPage())
+                    );
+                  },
+                  child: Padding(
+                    padding: EdgeInsets.only(left: 25),
+                    child: ListTile(
+                      leading: Icon(Icons.info),
+                      title: Text("About"),
+                    ),
+                  ),
+                ),
+                if (widget.userEmail == 'ohadleib@gmail.com')
             GestureDetector(
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => AboutPage(),
+                    builder: (context) => CoffeeManager()
                   ),
                 );
               },
               child: Padding(
-                padding: EdgeInsets.only(left: 25),
+                padding: EdgeInsets.only(left: 25.0),
                 child: ListTile(
-                  leading: Icon(Icons.info),
-                  title: Text('About'),
+                  leading: Icon(Icons.manage_accounts),
+                  title: (Text("Manage Products")),
                 ),
               ),
+            ),
+              ],
+              
             ),
             GestureDetector(
               onTap: () {
@@ -120,28 +131,10 @@ int _selectedIndex = 0;
                 padding: EdgeInsets.only(left: 25, bottom: 25),
                 child: ListTile(
                   leading: Icon(Icons.logout),
-                  title: Text('Logout'),
+                  title: Text("Logout"),
                 ),
               ),
-            ),
-            if ("str8546200@gmail.com" == user?.email)
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CoffeeManager(),
-                  ),
-                );
-                },
-                child: Padding(
-                  padding: EdgeInsets.only(left: 25, bottom: 25),
-                  child: ListTile(
-                    leading: Icon(Icons.manage_accounts),
-                    title: Text('manage prouducts'),
-                  ),
-                ),
-              )
+            )
           ],
         ),
       ),

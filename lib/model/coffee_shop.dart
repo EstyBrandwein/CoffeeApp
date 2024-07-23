@@ -1,59 +1,65 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+
 import 'coffee.dart';
 
-class CoffeeShope extends ChangeNotifier {
-  final List<Coffee> _shop = [
-    Coffee(
-      name: "Long Black",
-      price: 4.10,
-      imagePath: "lib/images/black.png",
-    ),
-    Coffee(
-      name: "Latte",
-      price: 4.00,
-      imagePath: "lib/images/latte.png",
-    ),
-    Coffee(
-      name: "Espresso",
-      price: 4.40,
-      imagePath: "lib/images/espresso.png",
-    ),
-    Coffee(
-      name: "Iced Coffee",
-      price: 5.00,
-      imagePath: "lib/images/iced_coffee.png",
-    ),
-  ];
+class CoffeeShop extends ChangeNotifier {
 
-  List<Coffee> get coffeeShope => _shop;
-  List<Coffee> _userCart = [];
-  List<Coffee> get userCart => _userCart;
-  void addItemToCart(Coffee coffee, int quantity) {
-    coffee.quantity = quantity;
-    _userCart.add(coffee);
-    notifyListeners();
-  }
+List<Coffee> _shop = [];
+List<Coffee> _userCart = [];
 
-  void removeFromCart(Coffee coffee) {
-    _userCart.remove(coffee);
-    notifyListeners();
-  }
+CoffeeShop() {
+  _fetchProducts();
+}
 
-  void clearCart() {
-    _userCart.clear();
-    ChangeNotifier();
-  }
+List<Coffee> get coffeeShop => _shop; 
+List<Coffee> get userCart => _userCart; 
 
-  void addItemProduct(String name, double price, String ImageUrl) {
-    _shop.add(
-        Coffee(name: name, price: price, imagePath: 'lib/images/${ImageUrl}'));
-      notifyListeners();
+void addItemToCart(Coffee coffee, int quantity) {
+  coffee.quantity = quantity;
+  _userCart.add(coffee);
+  notifyListeners();
+}
 
-  }
+void removeItemToCart(Coffee coffee) {
+  _userCart.remove(coffee);
+  notifyListeners();
+}
 
-  void removeItem(Coffee coffee) {
-    _shop.remove(coffee);
-        notifyListeners();
+void clearCart() {
+  _userCart.clear();
+  notifyListeners();
+}
 
-  }
+void _fetchProducts() async {
+  QuerySnapshot snapshot = await FirebaseFirestore.instance.collection('products').get();
+  _shop = snapshot.docs.map((doc) {
+    return Coffee(
+      id: doc.id,
+      name: doc['name'],
+      price: doc['price'],
+      imagePath: doc['imagePath'],
+    );
+  }).toList();
+  notifyListeners();
+}
+
+Future<void> addProduct(Coffee coffee) async {
+  DocumentReference docRef = await FirebaseFirestore.instance.collection('products').add({
+    'name': coffee.name,
+    'price': coffee.price,
+    'imagePath': coffee.imagePath,
+  });
+  coffee.id = docRef.id;
+  _shop.add(coffee);
+  notifyListeners();
+}
+
+Future<void> deleteProducts(Coffee coffee) async {
+  await FirebaseFirestore.instance.collection('products').doc(coffee.id).delete();
+  _shop.remove(coffee);
+  notifyListeners();
+}
+
+
 }

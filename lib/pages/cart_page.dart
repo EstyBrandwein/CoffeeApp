@@ -1,121 +1,85 @@
-import 'package:coffeeapp/components/coffee_tile_cart.dart';
-import 'package:coffeeapp/const.dart';
-import 'package:coffeeapp/model/coffee_shop.dart';
-import 'package:coffeeapp/pages/payment_page.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:provider/provider.dart';
-
-import '../components/My_button.dart';
+import '../components/cart_tile.dart';
+import '../components/my_button.dart';
 import '../model/coffee.dart';
-import '../services/email_service.dart';
+import '../model/coffee_shop.dart';
+import 'credit_card_page.dart';
 
 class CartPage extends StatefulWidget {
+  final String userEmail;
+
+  CartPage({required this.userEmail});
+
   State<CartPage> createState() => _CartPageState();
 }
 
 class _CartPageState extends State<CartPage> {
-  final EmailService emailService = EmailService();
-  String items = "";
+  void removeItemFromCart(Coffee coffee) {
+    Provider.of<CoffeeShop>(context, listen: false).removeItemToCart(coffee);
+  }
 
-  void goToPaymentPage() {
+  void payNow() {
     Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) => PaymentPage(
-                  onPaymentSuccess: () {},
-                )));
+      context,
+      MaterialPageRoute(builder: (context) => CreditCardPage(userEmail: widget.userEmail)),
+    );
   }
 
-  double _calculateTotalPrice() {
-    return Provider.of<CoffeeShope>(context, listen: false).userCart.fold(
-          0.0,
-          (total, coffee) => total += (coffee.price * coffee.quantity),
-        );
-  }
-
-  int _calculateTotalItems() {
-    return Provider.of<CoffeeShope>(context, listen: false).userCart.fold(
-          0,
-          (total, coffee) => total + coffee.quantity,
-        );
-  }
-
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: backgroundColor,
-      appBar: AppBar(
-        title: Text("Your Cart"),
-        backgroundColor: backgroundColor,
-      ),
-      body: Center(
-          child: Consumer<CoffeeShope>(
-        builder: (context, value, child) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return Consumer<CoffeeShop>(
+      builder: (context, value, child) {
+        double totalPrice = value.userCart.fold(0, (sum, item) => sum + item.price * item.quantity);
+        int totalQuantity = value.userCart.fold(0, (sum, item) => sum + item.quantity);
+
+        return Column(
           children: [
-            SizedBox(
-              height: 25,
+            Row(
+              children: const [
+                Padding(
+                  padding: EdgeInsets.only(left: 25.0, top: 25, bottom: 25),
+                  child: Text('Your Cart', style: TextStyle(fontSize: 20)),
+                ),
+              ],
             ),
             Expanded(
               child: ListView.builder(
                 itemCount: value.userCart.length,
                 itemBuilder: (context, index) {
-                  Coffee eachCoffee = value.userCart[index];
-                  items += '${eachCoffee.name} x ${eachCoffee.quantity}\n';
-                  return CoffeeTileCart(
-                      coffee: eachCoffee,
-                      onPressed: () =>
-                          Provider.of<CoffeeShope>(context, listen: false)
-                              .removeFromCart(eachCoffee));
+                  Coffee coffee = value.userCart[index];
+                  return CartTile(
+                    coffee: coffee,
+                    onPressed: () => removeItemFromCart(coffee),
+                  );
                 },
               ),
             ),
-            SizedBox(
-              height: 25,
-            ),
-            Row(children: [
-              Text(
-                '   Total Quantity:',
-                style: TextStyle(
-                  fontSize: 18,
-                ),
-              ),
-              Spacer(),
-              Text(
-                '${_calculateTotalItems().toStringAsFixed(2)}   ',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ]),
-            Row(
-              children: [
-                Text(
-                  '   Total Price:',
-                  style: TextStyle(
-                    fontSize: 18,
+            Padding(
+              padding: const EdgeInsets.all(25.0),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Total Quantity:', style: TextStyle(fontSize: 16)),
+                      Text('$totalQuantity', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
                   ),
-                ),
-                Spacer(),
-                Text(
-                  '\$${_calculateTotalPrice().toStringAsFixed(2)}   ',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ],
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Total Price:', style: TextStyle(fontSize: 16)),
+                      Text('\$${totalPrice.toStringAsFixed(2)}', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            MyButton(onTap: () => {goToPaymentPage(),_sendEmailOrder()}, text: 'Pay now '),
+            MyButton(text: "Pay now", onTap: payNow),
           ],
-        ),
-      )),
+        );
+      },
     );
-  }
-
-  void _sendEmailOrder() async {
-    // String input = _phoneEmailController.text.trim();
-
-    await emailService.sendEmail(
-      emailService.email,
-      'Your Order Detiles ',
-      'order detiles: \n${items} \nTotal:\$ ${_calculateTotalPrice()}',
-    );
-    // Save the code locally or use another method to verify it later
   }
 }
